@@ -1,0 +1,7 @@
+{"layout": "flow", "eyebrow": "evaboot-labs · ai-lead-finder", "headline": "One sentence. Clean leads.",
+ "subline": "Your ICP in plain words. A tightened Sales Navigator search and verified leads out, every week.",
+ "nodes": [{"label": "01 · Describe", "title": "One sentence", "caption": "Roles, size, industry"},
+           {"label": "02 · Build", "title": "Evaboot", "caption": "Sales Navigator search"},
+           {"label": "03 · Tighten", "title": "AI Agent", "caption": "Free preview, 80% fit"},
+           {"label": "04 · Result", "title": "Your leads", "caption": "Verified, weekly"}],
+ "spec": "server <em>mcp.evaboot.com/mcp</em> · previews are free"}

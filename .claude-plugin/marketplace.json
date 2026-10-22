@@ -1,0 +1,14 @@
+{
+  "name": "evaboot-labs-ai-lead-finder",
+  "owner": { "name": "Evaboot", "url": "https://evaboot.com" },
+  "metadata": {
+    "description": "An AI lead finder: one sentence in, a clean Sales Navigator search and verified leads out, every week."
+  },
+  "plugins": [
+    {
+      "name": "ai-lead-finder",
+      "source": "./",
+      "description": "Describe your ideal leads in one sentence: an AI Agent builds the Sales Navigator search, scores a free preview, tightens it until it is clean, exports the leads with verified emails, and repeats it every week."
+    }
+  ]
+}

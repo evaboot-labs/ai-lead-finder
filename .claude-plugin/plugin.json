@@ -1,0 +1,13 @@
+{
+  "name": "ai-lead-finder",
+  "version": "1.0.0",
+  "description": "Describe your ideal leads in one sentence: an AI Agent builds the Sales Navigator search, scores a free preview, tightens it until it is clean, exports the leads with verified emails, and repeats it every week.",
+  "author": { "name": "Evaboot", "url": "https://evaboot.com" },
+  "homepage": "https://evaboot.com/blog/how-to-generate-leads-with-ai",
+  "repository": "https://github.com/evaboot-labs/ai-lead-finder",
+  "license": "MIT",
+  "privacyPolicyUrl": "https://evaboot.com/privacy-policy",
+  "keywords": ["lead-generation", "ai-agent", "lead-finder", "sales-navigator", "evaboot", "mcp"],
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json"
+}

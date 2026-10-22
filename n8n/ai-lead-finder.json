@@ -1,0 +1,1035 @@
+{
+  "name": "AI lead finder (Evaboot MCP + Claude)",
+  "nodes": [
+    {
+      "parameters": {
+        "formTitle": "Find leads with AI",
+        "formDescription": "Describe the people you want in one sentence. Evaboot builds the Sales Navigator search, Claude judges a free preview of 25 leads, and you decide before any credit is spent.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Who (roles, seniority, country)",
+              "fieldType": "textarea",
+              "requiredField": true,
+              "placeholder": "Heads, directors and VPs of Revenue Operations or Sales Operations in the United States"
+            },
+            {
+              "fieldLabel": "Company size",
+              "fieldType": "checkbox",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "11-50"
+                  },
+                  {
+                    "option": "51-200"
+                  },
+                  {
+                    "option": "201-500"
+                  },
+                  {
+                    "option": "501-1,000"
+                  },
+                  {
+                    "option": "1,001-5,000"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Industry",
+              "fieldType": "dropdown",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Any"
+                  },
+                  {
+                    "option": "Software Development"
+                  },
+                  {
+                    "option": "IT Services and IT Consulting"
+                  },
+                  {
+                    "option": "Financial Services"
+                  },
+                  {
+                    "option": "Staffing and Recruiting"
+                  },
+                  {
+                    "option": "Hospitals and Health Care"
+                  },
+                  {
+                    "option": "Advertising Services"
+                  },
+                  {
+                    "option": "Technology, Information and Internet"
+                  }
+                ]
+              }
+            },
+            {
+              "fieldLabel": "Exclude these title words",
+              "fieldType": "text",
+              "placeholder": "Consultant, Advisor, Fractional, Independent"
+            },
+            {
+              "fieldLabel": "Leads to export",
+              "fieldType": "number",
+              "requiredField": true,
+              "placeholder": "20"
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {}
+      },
+      "id": "2c62bcdd-a986-4ae4-bbb2-a5eda3e4baae",
+      "name": "Describe your leads",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.2,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "b996b51e-a282-48d4-857e-f75b9e1ca692",
+              "name": "sheet_url",
+              "type": "string",
+              "value": "PASTE_YOUR_GOOGLE_SHEET_URL_WITH_GID"
+            },
+            {
+              "id": "ab9cef62-28b9-4d21-a090-9bb422656714",
+              "name": "target_precision",
+              "type": "string",
+              "value": "0.8"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "cb1687cb-1706-4f08-ab85-0b3f88e1f2ca",
+      "name": "Your settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "build_sn_search_from_prompt",
+          "cachedResultName": "build_sn_search_from_prompt"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ request: $('Describe your leads').first().json['Who (roles, seniority, country)'], max_results: Number($('Describe your leads').first().json['Leads to export']) || 20 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "35bdfe3a-e285-4413-881c-96273191c480",
+      "name": "Build the search",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 20
+      },
+      "id": "573ece2c-a78c-4c3c-81e9-b9e524a4a5c2",
+      "name": "Wait 20 s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "get_search_build",
+          "cachedResultName": "get_search_build"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ build_id: $('Build the search').first().json.structuredContent.result.build_id }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "5bc02cf7-fadf-42d5-80b4-133035b1933a",
+      "name": "Check the build",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6e91d2a2-d6b3-4281-bd80-4f80cd770a35",
+              "leftValue": "={{ $json.structuredContent.result.status }}",
+              "rightValue": "complete",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "55e0cfb3-f2ea-40ad-b09e-13a6d500d8a9",
+      "name": "Built?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Add size, industry and title exclusions to the URL Evaboot built from the sentence. Asking the builder\n// for them instead starts a slow company-first crawl.\nconst SIZES = {\"11-50\": \"C\", \"51-200\": \"D\", \"201-500\": \"E\", \"501-1,000\": \"F\", \"1,001-5,000\": \"G\"}, INDUSTRIES = {\"Software Development\": 4, \"IT Services and IT Consulting\": 96, \"Financial Services\": 43, \"Staffing and Recruiting\": 104, \"Hospitals and Health Care\": 14, \"Advertising Services\": 80, \"Technology, Information and Internet\": 6};\nconst form = $('Describe your leads').first().json;\nlet url = $json.structuredContent.result.url;\nif (!url) throw new Error('Evaboot returned no search URL: ' + JSON.stringify($json.structuredContent.result).slice(0, 300));\nconst filters = [];\nconst sizes = (form['Company size'] || []).map(s => SIZES[s]).filter(Boolean);\nif (sizes.length) filters.push(`(type%3ACOMPANY_HEADCOUNT%2Cvalues%3AList(${sizes.map(s => `(id%3A${s}%2CselectionType%3AINCLUDED)`).join('%2C')}))`);\nconst ind = INDUSTRIES[form['Industry']];\nif (ind) filters.push(`(type%3AINDUSTRY%2Cvalues%3AList((id%3A${ind}%2CselectionType%3AINCLUDED)))`);\nconst words = String(form['Exclude these title words'] || '').split(',').map(w => w.trim()).filter(Boolean);\nif (words.length) {\n  const add = words.map(w => encodeURIComponent(encodeURIComponent(w.includes(' ') ? `\"${w}\"` : w))).join('%2520OR%2520');\n  if (url.includes('%2520NOT%2520%2528')) url = url.replace(/%2529%2CselectionType%3AINCLUDED/, `%2520OR%2520${add}%2529%2CselectionType%3AINCLUDED`);\n  else if (url.includes('CURRENT_TITLE')) url = url.replace(/(CURRENT_TITLE%2Cvalues%3AList\\(\\(text%3A[^,]*?)%2CselectionType/, `$1%2520NOT%2520%2528${add}%2529%2CselectionType`);\n  else throw new Error('The search has no job title filter to exclude words from: describe the roles in the sentence.');\n}\nif (filters.length) {\n  if (!/\\)\\)$/.test(url)) throw new Error('Unexpected search URL shape, filters not added: ' + url.slice(-80));\n  url = url.replace(/\\)\\)$/, '%2C' + filters.join('%2C') + '))');\n}\nreturn [{ json: { url } }];\n"
+      },
+      "id": "3352e836-f508-43d5-ae1c-eb09b108278b",
+      "name": "Add size, industry and exclusions",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "search_sn_leads",
+          "cachedResultName": "search_sn_leads"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ search_url: $json.url, count: 25 }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "17fba375-e9ff-438c-b71c-67da9325afa2",
+      "name": "Preview 25 leads (free)",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        1540,
+        0
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "hasOutputParser": true,
+        "text": "={{ JSON.stringify($json.structuredContent.result.data.elements.map(e => ({ title: e.title, company: e.company }))) }}",
+        "options": {
+          "systemMessage": "=You judge a Sales Navigator preview against what the user wants. For each lead in the JSON (title and company only), return {fit: true or false, reason}. A lead fits when its title matches the roles and seniority the user described and nothing in the title or company name contradicts the rest. Mark consultants, advisors, fractional and independent roles as not a fit. The reason is 2 to 6 words, the same wording for the same kind of miss. Never guess facts you cannot see.\n\nWhat the user wants:\n{{ $('Describe your leads').first().json['Who (roles, seniority, country)'] }}, company size {{ ($('Describe your leads').first().json['Company size'] || []).join(', ') || 'any' }}, industry {{ $('Describe your leads').first().json['Industry'] }}.",
+          "maxIterations": 3
+        }
+      },
+      "id": "5ae9caaa-80d4-45c3-8b04-870a7667b79c",
+      "name": "Judge the preview",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 2.2,
+      "position": [
+        1780,
+        0
+      ],
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "claude-sonnet-5-5",
+          "cachedResultName": "claude-sonnet-5-5"
+        },
+        "options": {
+          "maxTokensToSample": 4000
+        }
+      },
+      "id": "ebaba7ac-1936-4994-a9d8-15f8484be05a",
+      "name": "Claude",
+      "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
+      "typeVersion": 1.3,
+      "position": [
+        1740,
+        200
+      ],
+      "credentials": {
+        "anthropicApi": {
+          "id": "",
+          "name": "Anthropic"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"required\": [\n    \"leads\"\n  ],\n  \"properties\": {\n    \"leads\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"fit\",\n          \"reason\"\n        ],\n        \"properties\": {\n          \"fit\": {\n            \"type\": \"boolean\"\n          },\n          \"reason\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    }\n  }\n}"
+      },
+      "id": "15ee0814-e220-41f9-848a-8490bd780a70",
+      "name": "Verdicts",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        1900,
+        200
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Same verdict as finder.py rounds: share of the previewed leads that fit, and what still gets through.\nconst target = Number($('Your settings').first().json.target_precision) || 0.8;\nconst verdicts = $json.output.leads || [];\nif (verdicts.length < 20) throw new Error(`Claude judged ${verdicts.length} leads, at least 20 are needed. Run it again.`);\nconst fit = verdicts.filter(v => v.fit).length, n = verdicts.length || 1;\nconst misses = {};\nverdicts.filter(v => !v.fit).forEach(v => { misses[v.reason] = (misses[v.reason] || 0) + 1; });\nconst preview = $('Preview 25 leads (free)').first().json.structuredContent.result.data;\nreturn [{ json: {\n  url: $('Add size, industry and exclusions').first().json.url, total: preview.paging.total,\n  fit, judged: verdicts.length, precision: Math.round(100 * fit / n), ready: fit / n >= target,\n  misses: Object.entries(misses).map(([r, c]) => `${c} x ${r}`).join('; ') || 'none',\n} }];\n"
+      },
+      "id": "48a9c313-dc12-44b7-a8e4-781953ab4aef",
+      "name": "Precision",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "What next?",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Export the leads"
+                  },
+                  {
+                    "option": "Stop here"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "formTitle": "={{ $json.total.toLocaleString() }} people, {{ $json.precision }}% of the preview fits",
+          "formDescription": "={{ $json.ready ? 'Ready to export.' : 'Under your target: tighten the sentence, the size, the industry or the excluded words, and submit the form again.' }} Still in the preview: {{ $json.misses }}. Exporting costs 1 Evaboot credit per lead ({{ $('Describe your leads').first().json['Leads to export'] }} leads). <a href=\"{{ $json.url }}\" target=\"_blank\">Open the search in Sales Navigator</a>"
+        }
+      },
+      "id": "6ebd37f2-501d-4e48-8ac4-e915e17ad91c",
+      "name": "Review the search",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        0,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "d60eadb0-fc9a-46f8-9285-4eff48902d15",
+              "leftValue": "={{ $json['What next?'] }}",
+              "rightValue": "Export the leads",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a5d9b27d-28ce-43e9-8a19-74497039cbc7",
+      "name": "Export?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        420
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "export_sn_search_or_list",
+          "cachedResultName": "export_sn_search_or_list"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ linkedin_url: $('Precision').first().json.url, max_results: Number($('Describe your leads').first().json['Leads to export']) || 20, search_name: 'AI lead finder ' + $now.toFormat('yyyy-MM-dd') }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "d0473361-98cb-49c8-80d1-b9c0d2811a8a",
+      "name": "Export with Evaboot",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        440,
+        400
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 30
+      },
+      "id": "b07c514a-f685-46bf-b8d7-e6f79d6014e0",
+      "name": "Wait 30 s",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        660,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "get_export",
+          "cachedResultName": "get_export"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ extraction_id: $('Export with Evaboot').first().json.structuredContent.result.extraction_id }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "5f714797-c12b-42ea-9441-b37b348496d2",
+      "name": "Check the export",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        880,
+        400
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "fb4e6366-bdd6-48b8-8757-d1054cbdfc77",
+              "leftValue": "={{ $json.structuredContent.result.status }}",
+              "rightValue": "EXECUTED",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "6c3fb648-aa5f-440d-ba3f-88ce341a783b",
+      "name": "Done?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1100,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// Stop instead of waiting forever when the export failed.\nconst r = $json.structuredContent.result;\nif (r.failure_reason || /FAIL|ERROR|CANCEL/i.test(r.status || '')) throw new Error(`The export stopped: ${r.status} ${r.failure_reason || ''}`);\nreturn [$input.first()];\n"
+      },
+      "id": "49a892b8-35d1-4089-9d1a-e4d26d2060ba",
+      "name": "Still running?",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1100,
+        560
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "\n// One clean row per lead, the same columns as finder.py csv.\nconst p = $json.structuredContent.result.prospects || [];\nif (!p.length) throw new Error('The export returned no leads.');\nconst cols = ['First Name', 'Last Name', 'Current Job', 'Company Name', 'Company Domain', 'Email', 'Email Status',\n  'Company Employee Range', 'Company Industry', 'Location', 'Linkedin URL Public'];\nreturn p.map(x => ({ json: Object.fromEntries(cols.map(c => [c, x[c] ?? ''])) }));\n"
+      },
+      "id": "e6471951-7176-42dd-a10a-7960b592398b",
+      "name": "Lead rows",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1320,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $('Your settings').first().json.sheet_url }}"
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "url",
+          "value": "={{ $('Your settings').first().json.sheet_url }}"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": []
+        },
+        "options": {}
+      },
+      "id": "3b5c4696-eca9-4eb0-86c5-d4ca479e5946",
+      "name": "Add to your sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1540,
+        400
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Repeat this search every week?",
+              "fieldType": "dropdown",
+              "requiredField": true,
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Yes, every week"
+                  },
+                  {
+                    "option": "No"
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "options": {
+          "formTitle": "={{ $('Lead rows').all().length }} leads are in your sheet",
+          "formDescription": "A weekly recurring export returns only the people who are new to this search, so you never pay twice for the same person. Each run spends 1 credit per new lead."
+        }
+      },
+      "id": "97d56760-eba9-4de3-a200-4084dc2bfa4a",
+      "name": "Every week?",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        1760,
+        400
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "2d0f6414-9254-4d50-8a6e-9babeaf3efaa",
+              "leftValue": "={{ $json['Repeat this search every week?'] }}",
+              "rightValue": "Yes, every week",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "a72120a8-293b-4cd8-918d-e5532f82dc35",
+      "name": "Weekly?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1980,
+        400
+      ]
+    },
+    {
+      "parameters": {
+        "endpointUrl": "https://mcp.evaboot.com/mcp",
+        "authentication": "bearerAuth",
+        "tool": {
+          "__rl": true,
+          "mode": "list",
+          "value": "create_recurring_export",
+          "cachedResultName": "create_recurring_export"
+        },
+        "inputMode": "json",
+        "jsonInput": "={{ JSON.stringify({ extraction_id: $('Export with Evaboot').first().json.structuredContent.result.extraction_id, frequency: 'weekly' }) }}",
+        "options": {
+          "timeout": 120000
+        }
+      },
+      "id": "c4536b6c-31f5-443b-a522-ea5213709625",
+      "name": "Create the weekly export",
+      "type": "@n8n/n8n-nodes-langchain.mcpClient",
+      "typeVersion": 1.1,
+      "position": [
+        2200,
+        320
+      ],
+      "credentials": {
+        "httpBearerAuth": {
+          "id": "",
+          "name": "Evaboot MCP (Bearer)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Weekly export created",
+        "completionMessage": "=Next run: {{ $json.structuredContent.result.next_execution_at.slice(0, 10) }}. Connect a destination in Evaboot (Integrations) to send each run to your sheet or CRM.",
+        "options": {}
+      },
+      "id": "49571651-14be-40b5-827c-24485ea59a21",
+      "name": "Weekly export on",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        2420,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Leads saved",
+        "completionMessage": "Your leads are in your sheet.",
+        "options": {}
+      },
+      "id": "68948faa-d9a8-4953-b468-d840114170ca",
+      "name": "Leads saved",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        2200,
+        500
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "completionTitle": "Nothing exported",
+        "completionMessage": "No credit was spent. Submit the form again with a tighter description.",
+        "options": {}
+      },
+      "id": "1fb48cc3-edda-4878-8bbf-c07806c2ce21",
+      "name": "Stopped",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.3,
+      "position": [
+        440,
+        600
+      ]
+    }
+  ],
+  "connections": {
+    "Describe your leads": {
+      "main": [
+        [
+          {
+            "node": "Your settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Your settings": {
+      "main": [
+        [
+          {
+            "node": "Build the search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build the search": {
+      "main": [
+        [
+          {
+            "node": "Wait 20 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 20 s": {
+      "main": [
+        [
+          {
+            "node": "Check the build",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the build": {
+      "main": [
+        [
+          {
+            "node": "Built?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add size, industry and exclusions": {
+      "main": [
+        [
+          {
+            "node": "Preview 25 leads (free)",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preview 25 leads (free)": {
+      "main": [
+        [
+          {
+            "node": "Judge the preview",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Judge the preview": {
+      "main": [
+        [
+          {
+            "node": "Precision",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Precision": {
+      "main": [
+        [
+          {
+            "node": "Review the search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Review the search": {
+      "main": [
+        [
+          {
+            "node": "Export?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export with Evaboot": {
+      "main": [
+        [
+          {
+            "node": "Wait 30 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait 30 s": {
+      "main": [
+        [
+          {
+            "node": "Check the export",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check the export": {
+      "main": [
+        [
+          {
+            "node": "Done?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Lead rows": {
+      "main": [
+        [
+          {
+            "node": "Add to your sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to your sheet": {
+      "main": [
+        [
+          {
+            "node": "Every week?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every week?": {
+      "main": [
+        [
+          {
+            "node": "Weekly?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create the weekly export": {
+      "main": [
+        [
+          {
+            "node": "Weekly export on",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Built?": {
+      "main": [
+        [
+          {
+            "node": "Add size, industry and exclusions",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Wait 20 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Export?": {
+      "main": [
+        [
+          {
+            "node": "Export with Evaboot",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Stopped",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Done?": {
+      "main": [
+        [
+          {
+            "node": "Lead rows",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Still running?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Still running?": {
+      "main": [
+        [
+          {
+            "node": "Wait 30 s",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Weekly?": {
+      "main": [
+        [
+          {
+            "node": "Create the weekly export",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Leads saved",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Claude": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Judge the preview",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verdicts": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "Judge the preview",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}
