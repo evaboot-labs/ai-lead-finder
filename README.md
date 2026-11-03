@@ -39,7 +39,7 @@ npx skills add evaboot-labs/ai-lead-finder
 
 ## How it works
 
-**1. Previews are free, so the agent tightens before it spends.** Each round previews 25 leads, judges every one against [`TARGET.md`](TARGET.md), and changes one thing until 80% fit.
+**1. Previews are free, so the agent tightens before it spends.** Each round, the search builder shows 25 sample leads; the agent judges every one against [`TARGET.md`](TARGET.md), and changes one thing until 80% fit.
 
 ```text
 round  results      fit  change
