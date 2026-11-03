@@ -1,8 +1,10 @@
 """Builds n8n/ai-lead-finder.json. Run: python3 n8n/build_workflow.py
 
 A form takes one sentence (roles, seniority, country), the company size, the industry and the title words
-to exclude. Evaboot builds the Sales Navigator search from the sentence, a Code node adds the size,
-industry and exclusions to the URL, and a free preview of 25 leads goes to Claude, which judges each one.
+to exclude. Evaboot builds the Sales Navigator search from the sentence, the size and the exclusions, and its
+reply shows 25 sample people: that is the free preview, and Claude judges each one. The industry is never sent
+to the builder (a vertical starts a slow company-first crawl that writes account lists): Claude judges it on
+the preview, and a Code node adds it to the URL for the export only.
 A review page shows the result count and the precision; only on your yes does Evaboot export the leads
 into your sheet. A last page offers a weekly recurring export that returns only new people.
 """
@@ -62,30 +64,21 @@ def is_equal(name, left, right, pos):
 FORM = "Describe your leads"
 
 FILTERS_JS = r"""
-// Add size, industry and title exclusions to the URL Evaboot built from the sentence. Asking the builder
-// for them instead starts a slow company-first crawl.
-const SIZES = __SIZES__, INDUSTRIES = __INDUSTRIES__;
+// The builder made the people search (roles, place, size, exclusions). Add the industry for the export only:
+// asking the builder for it starts a slow company-first crawl that writes account lists on your seat.
+const INDUSTRIES = __INDUSTRIES__;
 const form = $('__FORM__').first().json;
-let url = $json.structuredContent.result.url;
-if (!url) throw new Error('Evaboot returned no search URL: ' + JSON.stringify($json.structuredContent.result).slice(0, 300));
-const filters = [];
-const sizes = (form['Company size'] || []).map(s => SIZES[s]).filter(Boolean);
-if (sizes.length) filters.push(`(type%3ACOMPANY_HEADCOUNT%2Cvalues%3AList(${sizes.map(s => `(id%3A${s}%2CselectionType%3AINCLUDED)`).join('%2C')}))`);
+const r = $json.structuredContent.result;
+let url = r.url;
+if (!url) throw new Error('Evaboot returned no search URL: ' + JSON.stringify(r).slice(0, 300));
+if (r.strategy && r.strategy !== 'leads') throw new Error(`Evaboot built a ${r.strategy} search, not a people search. Describe only roles and place in the sentence.`);
 const ind = INDUSTRIES[form['Industry']];
-if (ind) filters.push(`(type%3AINDUSTRY%2Cvalues%3AList((id%3A${ind}%2CselectionType%3AINCLUDED)))`);
-const words = String(form['Exclude these title words'] || '').split(',').map(w => w.trim()).filter(Boolean);
-if (words.length) {
-  const add = words.map(w => encodeURIComponent(encodeURIComponent(w.includes(' ') ? `"${w}"` : w))).join('%2520OR%2520');
-  if (url.includes('%2520NOT%2520%2528')) url = url.replace(/%2529%2CselectionType%3AINCLUDED/, `%2520OR%2520${add}%2529%2CselectionType%3AINCLUDED`);
-  else if (url.includes('CURRENT_TITLE')) url = url.replace(/(CURRENT_TITLE%2Cvalues%3AList\(\(text%3A[^,]*?)%2CselectionType/, `$1%2520NOT%2520%2528${add}%2529%2CselectionType`);
-  else throw new Error('The search has no job title filter to exclude words from: describe the roles in the sentence.');
+if (ind) {
+  if (!/\)\)$/.test(url)) throw new Error('Unexpected search URL shape, industry not added: ' + url.slice(-80));
+  url = url.replace(/\)\)$/, `%2C(type%3AINDUSTRY%2Cvalues%3AList((id%3A${ind}%2CselectionType%3AINCLUDED)))))`);
 }
-if (filters.length) {
-  if (!/\)\)$/.test(url)) throw new Error('Unexpected search URL shape, filters not added: ' + url.slice(-80));
-  url = url.replace(/\)\)$/, '%2C' + filters.join('%2C') + '))');
-}
-return [{ json: { url } }];
-""".replace("__SIZES__", json.dumps(SIZES)).replace("__INDUSTRIES__", json.dumps(INDUSTRIES)).replace("__FORM__", FORM)
+return [{ json: { url, total: r.result_count || 0, reply: r.reply || '' } }];
+""".replace("__INDUSTRIES__", json.dumps(INDUSTRIES)).replace("__FORM__", FORM)
 
 PRECISION_JS = r"""
 // Same verdict as finder.py rounds: share of the previewed leads that fit, and what still gets through.
@@ -95,9 +88,9 @@ if (verdicts.length < 20) throw new Error(`Claude judged ${verdicts.length} lead
 const fit = verdicts.filter(v => v.fit).length, n = verdicts.length || 1;
 const misses = {};
 verdicts.filter(v => !v.fit).forEach(v => { misses[v.reason] = (misses[v.reason] || 0) + 1; });
-const preview = $('Preview 25 leads (free)').first().json.structuredContent.result.data;
+const search = $('Add the industry').first().json;
 return [{ json: {
-  url: $('Add size, industry and exclusions').first().json.url, total: preview.paging.total,
+  url: search.url, total: search.total,
   fit, judged: verdicts.length, precision: Math.round(100 * fit / n), ready: fit / n >= target,
   misses: Object.entries(misses).map(([r, c]) => `${c} x ${r}`).join('; ') || 'none',
 } }];
@@ -112,14 +105,14 @@ const cols = ['First Name', 'Last Name', 'Current Job', 'Company Name', 'Company
 return p.map(x => ({ json: Object.fromEntries(cols.map(c => [c, x[c] ?? ''])) }));
 """
 
-JUDGE_SYSTEM = """You judge a Sales Navigator preview against what the user wants. For each lead in the JSON (title and company only), return {fit: true or false, reason}. A lead fits when its title matches the roles and seniority the user described and nothing in the title or company name contradicts the rest. Mark consultants, advisors, fractional and independent roles as not a fit. The reason is 2 to 6 words, the same wording for the same kind of miss. Never guess facts you cannot see.
+JUDGE_SYSTEM = """You judge a Sales Navigator preview against what the user wants. The message is the search builder's reply: it holds a table of sample people with their title and company. Take every person in the table, and for each one return {title, company, fit: true or false, reason}, judging from the title and company only. A lead fits when its title matches the roles and seniority the user described and nothing in the title or company name contradicts the rest. Mark consultants, advisors, fractional and independent roles as not a fit. The reason is 2 to 6 words, the same wording for the same kind of miss. Never guess facts you cannot see.
 
 What the user wants:
 {{ $('""" + FORM + """').first().json['Who (roles, seniority, country)'] }}, company size {{ ($('""" + FORM + """').first().json['Company size'] || []).join(', ') || 'any' }}, industry {{ $('""" + FORM + """').first().json['Industry'] }}."""
 
 node(FORM, "n8n-nodes-base.formTrigger", 2.2, {
     "formTitle": "Find leads with AI",
-    "formDescription": "Describe the people you want in one sentence. Evaboot builds the Sales Navigator search, Claude judges a free preview of 25 leads, and you decide before any credit is spent.",
+    "formDescription": "Describe the people you want in one sentence. Evaboot builds the Sales Navigator search, Claude judges a free sample of 25 leads, and you decide before any credit is spent.",
     "formFields": {"values": [
         {"fieldLabel": "Who (roles, seniority, country)", "fieldType": "textarea", "requiredField": True,
          "placeholder": "Heads, directors and VPs of Revenue Operations or Sales Operations in the United States"},
@@ -138,19 +131,20 @@ node("Your settings", "n8n-nodes-base.set", 3.4, {"assignments": {"assignments":
     {"id": str(uuid.uuid4()), "name": "target_precision", "type": "string", "value": "0.8"},
 ]}, "includeOtherFields": True, "options": {}}, [220, 0])
 mcp_call("Build the search", "build_sn_search_from_prompt",
-         f"={{{{ JSON.stringify({{ request: $('{FORM}').first().json['Who (roles, seniority, country)'], "
+         f"={{{{ JSON.stringify({{ prompt: [String($('{FORM}').first().json['Who (roles, seniority, country)']).trim().replace(/([^.!?])$/, '$1.'), "
+         f"($('{FORM}').first().json['Company size'] || []).length ? 'Company headcount filter: ' + $('{FORM}').first().json['Company size'].join(', ') + '.' : '', "
+         f"$('{FORM}').first().json['Exclude these title words'] ? 'Exclude these words from the job title: ' + $('{FORM}').first().json['Exclude these title words'] + '.' : '', "
+         f"'Build a people search only: do not run a company-first or account search. Show me 25 sample people in your reply, as a table with their title and company.'].filter(Boolean).join(' '), "
          f"max_results: Number($('{FORM}').first().json['Leads to export']) || 20 }}) }}}}", [440, 0])
 node("Wait 20 s", "n8n-nodes-base.wait", 1.1, {"amount": 20}, [660, 0])
 mcp_call("Check the build", "get_search_build",
          "={{ JSON.stringify({ build_id: $('Build the search').first().json.structuredContent.result.build_id }) }}",
          [880, 0])
 is_equal("Built?", "={{ $json.structuredContent.result.status }}", "complete", [1100, 0])
-code("Add size, industry and exclusions", FILTERS_JS, [1320, -100])
-mcp_call("Preview 25 leads (free)", "search_sn_leads",
-         "={{ JSON.stringify({ search_url: $json.url, count: 25 }) }}", [1540, -100])
+code("Add the industry", FILTERS_JS, [1320, -100])
 node("Judge the preview", "@n8n/n8n-nodes-langchain.agent", 2.2, {
     "promptType": "define", "hasOutputParser": True,
-    "text": "={{ JSON.stringify($json.structuredContent.result.data.elements.map(e => ({ title: e.title, company: e.company }))) }}",
+    "text": "={{ $json.reply }}",
     "options": {"systemMessage": "=" + JUDGE_SYSTEM, "maxIterations": 3},
 }, [1760, -100], retryOnFail=True, maxTries=3, waitBetweenTries=2000)
 node("Claude", "@n8n/n8n-nodes-langchain.lmChatAnthropic", 1.3, {
@@ -161,6 +155,7 @@ node("Verdicts", "@n8n/n8n-nodes-langchain.outputParserStructured", 1.3, {
     "schemaType": "manual",
     "inputSchema": json.dumps({"type": "object", "required": ["leads"], "properties": {"leads": {
         "type": "array", "items": {"type": "object", "required": ["fit", "reason"], "properties": {
+            "title": {"type": "string"}, "company": {"type": "string"},
             "fit": {"type": "boolean"}, "reason": {"type": "string"}}}}}}, indent=2),
 }, [1880, 120])
 code("Precision", PRECISION_JS, [1980, -100])
@@ -174,9 +169,9 @@ node("Review the search", "n8n-nodes-base.form", 2.3, {
 }, [2200, -100])
 is_equal("Export?", "={{ $json['What next?'] }}", "Export the leads", [2420, -100])
 mcp_call("Export with Evaboot", "export_sn_search_or_list",
-         "={{ JSON.stringify({ linkedin_url: $('Precision').first().json.url, "
+         "={{ JSON.stringify({ search_url: $('Precision').first().json.url, "
          f"max_results: Number($('{FORM}').first().json['Leads to export']) || 20, "
-         "search_name: 'AI lead finder ' + $now.toFormat('yyyy-MM-dd') }) }}", [2640, -200])
+         "name: 'AI lead finder ' + $now.toFormat('yyyy-MM-dd') }) }}", [2640, -200])
 node("Wait 30 s", "n8n-nodes-base.wait", 1.1, {"amount": 30}, [2860, -200])
 mcp_call("Check the export", "get_export",
          "={{ JSON.stringify({ extraction_id: $('Export with Evaboot').first().json.structuredContent.result.extraction_id }) }}",
@@ -220,9 +215,9 @@ node("Stopped", "n8n-nodes-base.form", 2.3, {"operation": "completion", "complet
 
 # Two rows on the canvas: build, preview and judge on top; review, export and weekly below.
 POS = {FORM: (0, 0), "Your settings": (220, 0), "Build the search": (440, 0), "Wait 20 s": (660, 0),
-       "Check the build": (880, 0), "Built?": (1100, 0), "Add size, industry and exclusions": (1320, 0),
-       "Preview 25 leads (free)": (1540, 0), "Judge the preview": (1780, 0), "Claude": (1740, 200),
-       "Verdicts": (1900, 200), "Precision": (2080, 0), "Review the search": (0, 420), "Export?": (220, 420),
+       "Check the build": (880, 0), "Built?": (1100, 0), "Add the industry": (1320, 0),
+       "Judge the preview": (1560, 0), "Claude": (1520, 200),
+       "Verdicts": (1680, 200), "Precision": (1860, 0), "Review the search": (0, 420), "Export?": (220, 420),
        "Stopped": (440, 600), "Export with Evaboot": (440, 400), "Wait 30 s": (660, 400), "Check the export": (880, 400),
        "Done?": (1100, 400), "Still running?": (1100, 560), "Lead rows": (1320, 400), "Add to your sheet": (1540, 400), "Every week?": (1760, 400),
        "Weekly?": (1980, 400), "Create the weekly export": (2200, 320), "Weekly export on": (2420, 320),
@@ -232,13 +227,13 @@ for n in nodes:
 
 for a, b in [(FORM, "Your settings"), ("Your settings", "Build the search"), ("Build the search", "Wait 20 s"),
              ("Wait 20 s", "Check the build"), ("Check the build", "Built?"),
-             ("Add size, industry and exclusions", "Preview 25 leads (free)"), ("Preview 25 leads (free)", "Judge the preview"),
+             ("Add the industry", "Judge the preview"),
              ("Judge the preview", "Precision"), ("Precision", "Review the search"), ("Review the search", "Export?"),
              ("Export with Evaboot", "Wait 30 s"), ("Wait 30 s", "Check the export"), ("Check the export", "Done?"),
              ("Lead rows", "Add to your sheet"), ("Add to your sheet", "Every week?"), ("Every week?", "Weekly?"),
              ("Create the weekly export", "Weekly export on")]:
     link(a, b)
-link("Built?", "Add size, industry and exclusions", out=0)
+link("Built?", "Add the industry", out=0)
 link("Built?", "Wait 20 s", out=1)
 link("Export?", "Export with Evaboot", out=0)
 link("Export?", "Stopped", out=1)

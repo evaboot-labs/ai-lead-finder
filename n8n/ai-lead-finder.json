@@ -4,7 +4,7 @@
     {
       "parameters": {
         "formTitle": "Find leads with AI",
-        "formDescription": "Describe the people you want in one sentence. Evaboot builds the Sales Navigator search, Claude judges a free preview of 25 leads, and you decide before any credit is spent.",
+        "formDescription": "Describe the people you want in one sentence. Evaboot builds the Sales Navigator search, Claude judges a free sample of 25 leads, and you decide before any credit is spent.",
         "formFields": {
           "values": [
             {
@@ -84,7 +84,7 @@
         "responseMode": "lastNode",
         "options": {}
       },
-      "id": "2c62bcdd-a986-4ae4-bbb2-a5eda3e4baae",
+      "id": "3b98b208-c6cb-4663-b4ea-4822985cf00c",
       "name": "Describe your leads",
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.2,
@@ -98,13 +98,13 @@
         "assignments": {
           "assignments": [
             {
-              "id": "b996b51e-a282-48d4-857e-f75b9e1ca692",
+              "id": "c14d1f67-196b-4d25-9684-4567d3491d80",
               "name": "sheet_url",
               "type": "string",
               "value": "PASTE_YOUR_GOOGLE_SHEET_URL_WITH_GID"
             },
             {
-              "id": "ab9cef62-28b9-4d21-a090-9bb422656714",
+              "id": "49650164-95a8-4adf-8089-0e2db5c0ddeb",
               "name": "target_precision",
               "type": "string",
               "value": "0.8"
@@ -114,7 +114,7 @@
         "includeOtherFields": true,
         "options": {}
       },
-      "id": "cb1687cb-1706-4f08-ab85-0b3f88e1f2ca",
+      "id": "be492d90-eec0-4daa-876c-a2aab94798e9",
       "name": "Your settings",
       "type": "n8n-nodes-base.set",
       "typeVersion": 3.4,
@@ -134,12 +134,12 @@
           "cachedResultName": "build_sn_search_from_prompt"
         },
         "inputMode": "json",
-        "jsonInput": "={{ JSON.stringify({ request: $('Describe your leads').first().json['Who (roles, seniority, country)'], max_results: Number($('Describe your leads').first().json['Leads to export']) || 20 }) }}",
+        "jsonInput": "={{ JSON.stringify({ prompt: [String($('Describe your leads').first().json['Who (roles, seniority, country)']).trim().replace(/([^.!?])$/, '$1.'), ($('Describe your leads').first().json['Company size'] || []).length ? 'Company headcount filter: ' + $('Describe your leads').first().json['Company size'].join(', ') + '.' : '', $('Describe your leads').first().json['Exclude these title words'] ? 'Exclude these words from the job title: ' + $('Describe your leads').first().json['Exclude these title words'] + '.' : '', 'Build a people search only: do not run a company-first or account search. Show me 25 sample people in your reply, as a table with their title and company.'].filter(Boolean).join(' '), max_results: Number($('Describe your leads').first().json['Leads to export']) || 20 }) }}",
         "options": {
           "timeout": 120000
         }
       },
-      "id": "35bdfe3a-e285-4413-881c-96273191c480",
+      "id": "745f14f5-71fe-4205-82ca-f61d8a05b3cc",
       "name": "Build the search",
       "type": "@n8n/n8n-nodes-langchain.mcpClient",
       "typeVersion": 1.1,
@@ -158,7 +158,7 @@
       "parameters": {
         "amount": 20
       },
-      "id": "573ece2c-a78c-4c3c-81e9-b9e524a4a5c2",
+      "id": "0c4e5eef-9f8d-4e58-b702-46af98085adf",
       "name": "Wait 20 s",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
@@ -183,7 +183,7 @@
           "timeout": 120000
         }
       },
-      "id": "5bc02cf7-fadf-42d5-80b4-133035b1933a",
+      "id": "e1d7ae42-7bf7-4d48-bb4e-2cce0eccd04f",
       "name": "Check the build",
       "type": "@n8n/n8n-nodes-langchain.mcpClient",
       "typeVersion": 1.1,
@@ -208,7 +208,7 @@
           },
           "conditions": [
             {
-              "id": "6e91d2a2-d6b3-4281-bd80-4f80cd770a35",
+              "id": "92e918fd-b209-4b4c-98ac-0548482a23a1",
               "leftValue": "={{ $json.structuredContent.result.status }}",
               "rightValue": "complete",
               "operator": {
@@ -221,7 +221,7 @@
         },
         "options": {}
       },
-      "id": "55e0cfb3-f2ea-40ad-b09e-13a6d500d8a9",
+      "id": "86ad5567-d112-4884-9235-d5357cbb641b",
       "name": "Built?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -232,10 +232,10 @@
     },
     {
       "parameters": {
-        "jsCode": "\n// Add size, industry and title exclusions to the URL Evaboot built from the sentence. Asking the builder\n// for them instead starts a slow company-first crawl.\nconst SIZES = {\"11-50\": \"C\", \"51-200\": \"D\", \"201-500\": \"E\", \"501-1,000\": \"F\", \"1,001-5,000\": \"G\"}, INDUSTRIES = {\"Software Development\": 4, \"IT Services and IT Consulting\": 96, \"Financial Services\": 43, \"Staffing and Recruiting\": 104, \"Hospitals and Health Care\": 14, \"Advertising Services\": 80, \"Technology, Information and Internet\": 6};\nconst form = $('Describe your leads').first().json;\nlet url = $json.structuredContent.result.url;\nif (!url) throw new Error('Evaboot returned no search URL: ' + JSON.stringify($json.structuredContent.result).slice(0, 300));\nconst filters = [];\nconst sizes = (form['Company size'] || []).map(s => SIZES[s]).filter(Boolean);\nif (sizes.length) filters.push(`(type%3ACOMPANY_HEADCOUNT%2Cvalues%3AList(${sizes.map(s => `(id%3A${s}%2CselectionType%3AINCLUDED)`).join('%2C')}))`);\nconst ind = INDUSTRIES[form['Industry']];\nif (ind) filters.push(`(type%3AINDUSTRY%2Cvalues%3AList((id%3A${ind}%2CselectionType%3AINCLUDED)))`);\nconst words = String(form['Exclude these title words'] || '').split(',').map(w => w.trim()).filter(Boolean);\nif (words.length) {\n  const add = words.map(w => encodeURIComponent(encodeURIComponent(w.includes(' ') ? `\"${w}\"` : w))).join('%2520OR%2520');\n  if (url.includes('%2520NOT%2520%2528')) url = url.replace(/%2529%2CselectionType%3AINCLUDED/, `%2520OR%2520${add}%2529%2CselectionType%3AINCLUDED`);\n  else if (url.includes('CURRENT_TITLE')) url = url.replace(/(CURRENT_TITLE%2Cvalues%3AList\\(\\(text%3A[^,]*?)%2CselectionType/, `$1%2520NOT%2520%2528${add}%2529%2CselectionType`);\n  else throw new Error('The search has no job title filter to exclude words from: describe the roles in the sentence.');\n}\nif (filters.length) {\n  if (!/\\)\\)$/.test(url)) throw new Error('Unexpected search URL shape, filters not added: ' + url.slice(-80));\n  url = url.replace(/\\)\\)$/, '%2C' + filters.join('%2C') + '))');\n}\nreturn [{ json: { url } }];\n"
+        "jsCode": "\n// The builder made the people search (roles, place, size, exclusions). Add the industry for the export only:\n// asking the builder for it starts a slow company-first crawl that writes account lists on your seat.\nconst INDUSTRIES = {\"Software Development\": 4, \"IT Services and IT Consulting\": 96, \"Financial Services\": 43, \"Staffing and Recruiting\": 104, \"Hospitals and Health Care\": 14, \"Advertising Services\": 80, \"Technology, Information and Internet\": 6};\nconst form = $('Describe your leads').first().json;\nconst r = $json.structuredContent.result;\nlet url = r.url;\nif (!url) throw new Error('Evaboot returned no search URL: ' + JSON.stringify(r).slice(0, 300));\nif (r.strategy && r.strategy !== 'leads') throw new Error(`Evaboot built a ${r.strategy} search, not a people search. Describe only roles and place in the sentence.`);\nconst ind = INDUSTRIES[form['Industry']];\nif (ind) {\n  if (!/\\)\\)$/.test(url)) throw new Error('Unexpected search URL shape, industry not added: ' + url.slice(-80));\n  url = url.replace(/\\)\\)$/, `%2C(type%3AINDUSTRY%2Cvalues%3AList((id%3A${ind}%2CselectionType%3AINCLUDED)))))`);\n}\nreturn [{ json: { url, total: r.result_count || 0, reply: r.reply || '' } }];\n"
       },
-      "id": "3352e836-f508-43d5-ae1c-eb09b108278b",
-      "name": "Add size, industry and exclusions",
+      "id": "7a965140-c537-47ef-8765-5b67dc93eda0",
+      "name": "Add the industry",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
@@ -245,51 +245,20 @@
     },
     {
       "parameters": {
-        "endpointUrl": "https://mcp.evaboot.com/mcp",
-        "authentication": "bearerAuth",
-        "tool": {
-          "__rl": true,
-          "mode": "list",
-          "value": "search_sn_leads",
-          "cachedResultName": "search_sn_leads"
-        },
-        "inputMode": "json",
-        "jsonInput": "={{ JSON.stringify({ search_url: $json.url, count: 25 }) }}",
-        "options": {
-          "timeout": 120000
-        }
-      },
-      "id": "17fba375-e9ff-438c-b71c-67da9325afa2",
-      "name": "Preview 25 leads (free)",
-      "type": "@n8n/n8n-nodes-langchain.mcpClient",
-      "typeVersion": 1.1,
-      "position": [
-        1540,
-        0
-      ],
-      "credentials": {
-        "httpBearerAuth": {
-          "id": "",
-          "name": "Evaboot MCP (Bearer)"
-        }
-      }
-    },
-    {
-      "parameters": {
         "promptType": "define",
         "hasOutputParser": true,
-        "text": "={{ JSON.stringify($json.structuredContent.result.data.elements.map(e => ({ title: e.title, company: e.company }))) }}",
+        "text": "={{ $json.reply }}",
         "options": {
-          "systemMessage": "=You judge a Sales Navigator preview against what the user wants. For each lead in the JSON (title and company only), return {fit: true or false, reason}. A lead fits when its title matches the roles and seniority the user described and nothing in the title or company name contradicts the rest. Mark consultants, advisors, fractional and independent roles as not a fit. The reason is 2 to 6 words, the same wording for the same kind of miss. Never guess facts you cannot see.\n\nWhat the user wants:\n{{ $('Describe your leads').first().json['Who (roles, seniority, country)'] }}, company size {{ ($('Describe your leads').first().json['Company size'] || []).join(', ') || 'any' }}, industry {{ $('Describe your leads').first().json['Industry'] }}.",
+          "systemMessage": "=You judge a Sales Navigator preview against what the user wants. The message is the search builder's reply: it holds a table of sample people with their title and company. Take every person in the table, and for each one return {title, company, fit: true or false, reason}, judging from the title and company only. A lead fits when its title matches the roles and seniority the user described and nothing in the title or company name contradicts the rest. Mark consultants, advisors, fractional and independent roles as not a fit. The reason is 2 to 6 words, the same wording for the same kind of miss. Never guess facts you cannot see.\n\nWhat the user wants:\n{{ $('Describe your leads').first().json['Who (roles, seniority, country)'] }}, company size {{ ($('Describe your leads').first().json['Company size'] || []).join(', ') || 'any' }}, industry {{ $('Describe your leads').first().json['Industry'] }}.",
           "maxIterations": 3
         }
       },
-      "id": "5ae9caaa-80d4-45c3-8b04-870a7667b79c",
+      "id": "06c495b6-e546-4808-b86a-ddf1ede6a23e",
       "name": "Judge the preview",
       "type": "@n8n/n8n-nodes-langchain.agent",
       "typeVersion": 2.2,
       "position": [
-        1780,
+        1560,
         0
       ],
       "retryOnFail": true,
@@ -308,12 +277,12 @@
           "maxTokensToSample": 4000
         }
       },
-      "id": "ebaba7ac-1936-4994-a9d8-15f8484be05a",
+      "id": "f38b5f01-f922-400c-aee1-804830bcf74e",
       "name": "Claude",
       "type": "@n8n/n8n-nodes-langchain.lmChatAnthropic",
       "typeVersion": 1.3,
       "position": [
-        1740,
+        1520,
         200
       ],
       "credentials": {
@@ -326,27 +295,27 @@
     {
       "parameters": {
         "schemaType": "manual",
-        "inputSchema": "{\n  \"type\": \"object\",\n  \"required\": [\n    \"leads\"\n  ],\n  \"properties\": {\n    \"leads\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"fit\",\n          \"reason\"\n        ],\n        \"properties\": {\n          \"fit\": {\n            \"type\": \"boolean\"\n          },\n          \"reason\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    }\n  }\n}"
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"required\": [\n    \"leads\"\n  ],\n  \"properties\": {\n    \"leads\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"required\": [\n          \"fit\",\n          \"reason\"\n        ],\n        \"properties\": {\n          \"title\": {\n            \"type\": \"string\"\n          },\n          \"company\": {\n            \"type\": \"string\"\n          },\n          \"fit\": {\n            \"type\": \"boolean\"\n          },\n          \"reason\": {\n            \"type\": \"string\"\n          }\n        }\n      }\n    }\n  }\n}"
       },
-      "id": "15ee0814-e220-41f9-848a-8490bd780a70",
+      "id": "9289d47f-b06e-4bf0-8520-59a29b84c93a",
       "name": "Verdicts",
       "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
       "typeVersion": 1.3,
       "position": [
-        1900,
+        1680,
         200
       ]
     },
     {
       "parameters": {
-        "jsCode": "\n// Same verdict as finder.py rounds: share of the previewed leads that fit, and what still gets through.\nconst target = Number($('Your settings').first().json.target_precision) || 0.8;\nconst verdicts = $json.output.leads || [];\nif (verdicts.length < 20) throw new Error(`Claude judged ${verdicts.length} leads, at least 20 are needed. Run it again.`);\nconst fit = verdicts.filter(v => v.fit).length, n = verdicts.length || 1;\nconst misses = {};\nverdicts.filter(v => !v.fit).forEach(v => { misses[v.reason] = (misses[v.reason] || 0) + 1; });\nconst preview = $('Preview 25 leads (free)').first().json.structuredContent.result.data;\nreturn [{ json: {\n  url: $('Add size, industry and exclusions').first().json.url, total: preview.paging.total,\n  fit, judged: verdicts.length, precision: Math.round(100 * fit / n), ready: fit / n >= target,\n  misses: Object.entries(misses).map(([r, c]) => `${c} x ${r}`).join('; ') || 'none',\n} }];\n"
+        "jsCode": "\n// Same verdict as finder.py rounds: share of the previewed leads that fit, and what still gets through.\nconst target = Number($('Your settings').first().json.target_precision) || 0.8;\nconst verdicts = $json.output.leads || [];\nif (verdicts.length < 20) throw new Error(`Claude judged ${verdicts.length} leads, at least 20 are needed. Run it again.`);\nconst fit = verdicts.filter(v => v.fit).length, n = verdicts.length || 1;\nconst misses = {};\nverdicts.filter(v => !v.fit).forEach(v => { misses[v.reason] = (misses[v.reason] || 0) + 1; });\nconst search = $('Add the industry').first().json;\nreturn [{ json: {\n  url: search.url, total: search.total,\n  fit, judged: verdicts.length, precision: Math.round(100 * fit / n), ready: fit / n >= target,\n  misses: Object.entries(misses).map(([r, c]) => `${c} x ${r}`).join('; ') || 'none',\n} }];\n"
       },
-      "id": "48a9c313-dc12-44b7-a8e4-781953ab4aef",
+      "id": "a57529d0-35cd-46e5-946f-39dab37650b1",
       "name": "Precision",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        2080,
+        1860,
         0
       ]
     },
@@ -376,7 +345,7 @@
           "formDescription": "={{ $json.ready ? 'Ready to export.' : 'Under your target: tighten the sentence, the size, the industry or the excluded words, and submit the form again.' }} Still in the preview: {{ $json.misses }}. Exporting costs 1 Evaboot credit per lead ({{ $('Describe your leads').first().json['Leads to export'] }} leads). <a href=\"{{ $json.url }}\" target=\"_blank\">Open the search in Sales Navigator</a>"
         }
       },
-      "id": "6ebd37f2-501d-4e48-8ac4-e915e17ad91c",
+      "id": "571e77ad-b707-4cb0-8801-80bd27899223",
       "name": "Review the search",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.3,
@@ -395,7 +364,7 @@
           },
           "conditions": [
             {
-              "id": "d60eadb0-fc9a-46f8-9285-4eff48902d15",
+              "id": "abce5b0f-bf40-4aa2-96fa-7b05bb926679",
               "leftValue": "={{ $json['What next?'] }}",
               "rightValue": "Export the leads",
               "operator": {
@@ -408,7 +377,7 @@
         },
         "options": {}
       },
-      "id": "a5d9b27d-28ce-43e9-8a19-74497039cbc7",
+      "id": "9fcfd578-c439-46c7-ae0f-4a5e083583d6",
       "name": "Export?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -428,12 +397,12 @@
           "cachedResultName": "export_sn_search_or_list"
         },
         "inputMode": "json",
-        "jsonInput": "={{ JSON.stringify({ linkedin_url: $('Precision').first().json.url, max_results: Number($('Describe your leads').first().json['Leads to export']) || 20, search_name: 'AI lead finder ' + $now.toFormat('yyyy-MM-dd') }) }}",
+        "jsonInput": "={{ JSON.stringify({ search_url: $('Precision').first().json.url, max_results: Number($('Describe your leads').first().json['Leads to export']) || 20, name: 'AI lead finder ' + $now.toFormat('yyyy-MM-dd') }) }}",
         "options": {
           "timeout": 120000
         }
       },
-      "id": "d0473361-98cb-49c8-80d1-b9c0d2811a8a",
+      "id": "f8a4475e-f3db-433f-af69-97db8ca81831",
       "name": "Export with Evaboot",
       "type": "@n8n/n8n-nodes-langchain.mcpClient",
       "typeVersion": 1.1,
@@ -452,7 +421,7 @@
       "parameters": {
         "amount": 30
       },
-      "id": "b07c514a-f685-46bf-b8d7-e6f79d6014e0",
+      "id": "9ee17910-76ad-40b6-b331-1522a11ef0d1",
       "name": "Wait 30 s",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
@@ -477,7 +446,7 @@
           "timeout": 120000
         }
       },
-      "id": "5f714797-c12b-42ea-9441-b37b348496d2",
+      "id": "466491f6-9849-4810-b9c0-432d7239bb61",
       "name": "Check the export",
       "type": "@n8n/n8n-nodes-langchain.mcpClient",
       "typeVersion": 1.1,
@@ -502,7 +471,7 @@
           },
           "conditions": [
             {
-              "id": "fb4e6366-bdd6-48b8-8757-d1054cbdfc77",
+              "id": "bf266216-a570-47ec-b60d-5f0c06703948",
               "leftValue": "={{ $json.structuredContent.result.status }}",
               "rightValue": "EXECUTED",
               "operator": {
@@ -515,7 +484,7 @@
         },
         "options": {}
       },
-      "id": "6c3fb648-aa5f-440d-ba3f-88ce341a783b",
+      "id": "bfc81bc5-bf4c-4ff7-a6d5-eb32d962a621",
       "name": "Done?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -528,7 +497,7 @@
       "parameters": {
         "jsCode": "\n// Stop instead of waiting forever when the export failed.\nconst r = $json.structuredContent.result;\nif (r.failure_reason || /FAIL|ERROR|CANCEL/i.test(r.status || '')) throw new Error(`The export stopped: ${r.status} ${r.failure_reason || ''}`);\nreturn [$input.first()];\n"
       },
-      "id": "49a892b8-35d1-4089-9d1a-e4d26d2060ba",
+      "id": "3555b136-f350-4252-9ff0-70bbd62912b7",
       "name": "Still running?",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -541,7 +510,7 @@
       "parameters": {
         "jsCode": "\n// One clean row per lead, the same columns as finder.py csv.\nconst p = $json.structuredContent.result.prospects || [];\nif (!p.length) throw new Error('The export returned no leads.');\nconst cols = ['First Name', 'Last Name', 'Current Job', 'Company Name', 'Company Domain', 'Email', 'Email Status',\n  'Company Employee Range', 'Company Industry', 'Location', 'Linkedin URL Public'];\nreturn p.map(x => ({ json: Object.fromEntries(cols.map(c => [c, x[c] ?? ''])) }));\n"
       },
-      "id": "e6471951-7176-42dd-a10a-7960b592398b",
+      "id": "2a315cb1-2b12-42f1-8acd-892e7ea32bed",
       "name": "Lead rows",
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -571,7 +540,7 @@
         },
         "options": {}
       },
-      "id": "3b5c4696-eca9-4eb0-86c5-d4ca479e5946",
+      "id": "9dd0ad91-f33e-4094-a372-457ab8fc76ce",
       "name": "Add to your sheet",
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
@@ -612,7 +581,7 @@
           "formDescription": "A weekly recurring export returns only the people who are new to this search, so you never pay twice for the same person. Each run spends 1 credit per new lead."
         }
       },
-      "id": "97d56760-eba9-4de3-a200-4084dc2bfa4a",
+      "id": "e3755fb3-7849-45c2-a65a-f8f00f9a31d2",
       "name": "Every week?",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.3,
@@ -632,7 +601,7 @@
           },
           "conditions": [
             {
-              "id": "2d0f6414-9254-4d50-8a6e-9babeaf3efaa",
+              "id": "203e05af-94d3-43c0-807d-e48d5c629283",
               "leftValue": "={{ $json['Repeat this search every week?'] }}",
               "rightValue": "Yes, every week",
               "operator": {
@@ -645,7 +614,7 @@
         },
         "options": {}
       },
-      "id": "a72120a8-293b-4cd8-918d-e5532f82dc35",
+      "id": "bb9a92e8-6e48-4c29-bfe6-7586ee2ba974",
       "name": "Weekly?",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
@@ -670,7 +639,7 @@
           "timeout": 120000
         }
       },
-      "id": "c4536b6c-31f5-443b-a522-ea5213709625",
+      "id": "35dc475e-324c-4aff-9974-a63ae4db3c86",
       "name": "Create the weekly export",
       "type": "@n8n/n8n-nodes-langchain.mcpClient",
       "typeVersion": 1.1,
@@ -692,7 +661,7 @@
         "completionMessage": "=Next run: {{ $json.structuredContent.result.next_execution_at.slice(0, 10) }}. Connect a destination in Evaboot (Integrations) to send each run to your sheet or CRM.",
         "options": {}
       },
-      "id": "49571651-14be-40b5-827c-24485ea59a21",
+      "id": "b8c85a55-267b-48de-a18d-8ddc390f4668",
       "name": "Weekly export on",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.3,
@@ -708,7 +677,7 @@
         "completionMessage": "Your leads are in your sheet.",
         "options": {}
       },
-      "id": "68948faa-d9a8-4953-b468-d840114170ca",
+      "id": "25045b61-e304-4fa9-9565-7007fcd035f2",
       "name": "Leads saved",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.3,
@@ -724,7 +693,7 @@
         "completionMessage": "No credit was spent. Submit the form again with a tighter description.",
         "options": {}
       },
-      "id": "1fb48cc3-edda-4878-8bbf-c07806c2ce21",
+      "id": "d12cb7e7-506d-4cff-a4d6-74a43d3317d6",
       "name": "Stopped",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.3,
@@ -790,18 +759,7 @@
         ]
       ]
     },
-    "Add size, industry and exclusions": {
-      "main": [
-        [
-          {
-            "node": "Preview 25 leads (free)",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Preview 25 leads (free)": {
+    "Add the industry": {
       "main": [
         [
           {
@@ -926,7 +884,7 @@
       "main": [
         [
           {
-            "node": "Add size, industry and exclusions",
+            "node": "Add the industry",
             "type": "main",
             "index": 0
           }
