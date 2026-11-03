@@ -1,6 +1,6 @@
 ---
 name: ai-lead-finder
-description: Find B2B leads with AI from one sentence - build the Sales Navigator search through Evaboot, preview 25 leads for free, judge each against TARGET.md, tighten the search until it reaches the precision target, export the leads with verified emails, report on them, and set a weekly recurring export that returns only new people. Use when the user asks to generate leads with AI, find leads, build a lead list, or turn an ICP into a Sales Navigator search.
+description: Find B2B leads with AI from one sentence - build the Sales Navigator search through Evaboot, preview 25 sample leads for free from the search builder, judge each against TARGET.md, tighten the search until it reaches the precision target, export the leads with verified emails, report on them, and set a weekly recurring export that returns only new people. Use when the user asks to generate leads with AI, find leads, build a lead list, or turn an ICP into a Sales Navigator search.
 ---
 
 # AI lead finder
@@ -26,9 +26,9 @@ You do the Sales Navigator and Evaboot work through the Evaboot MCP server (`htt
 
 ## Step 1: round 1, the sentence
 
-1. Call `build_sn_search_from_prompt` with **the people part only**: roles, seniority and place. Leave the industry and the company size out: in the request they start a slow company-first crawl. Pass `max_results` = the leads per run. Poll `get_search_build`.
-2. Call `search_sn_leads` on the URL with `count: 25` (free).
-3. Judge all 25 leads (`finder.py` needs at least 20): `fit` true or false, and a short `reason` for each miss, with the same wording for the same kind of miss. Add the round to `data/rounds.json`: `{"round", "change", "url", "total", "sample": [{"title", "company", "fit", "reason"}]}`.
+1. Call `build_sn_search_from_prompt` with **the people part only**: roles, seniority and place, and end the prompt with "Show me 25 sample people in your reply." Leave the industry out: naming a vertical starts a slow company-first crawl that writes account lists on the user's seat. Pass `max_results` = the leads per run. Poll `get_search_build` until `status` is `complete`.
+2. The finished build is the free preview: `result_count` is the total, and `reply` holds a table of sample people (name, title, company). Check `strategy` is `leads`; if it is account-based, stop and tell the user before anything else runs. Keep the `conversation_id` for the next rounds.
+3. Judge every person in the table (`finder.py` needs at least 20; if the reply shows fewer, ask the builder again in the same conversation for 25 sample people): `fit` true or false, and a short `reason` for each miss, with the same wording for the same kind of miss. Add the round to `data/rounds.json`: `{"round", "change", "url", "total", "sample": [{"title", "company", "fit", "reason"}]}`.
 
 ```bash
 python3 finder.py rounds data/rounds.json
@@ -36,10 +36,12 @@ python3 finder.py rounds data/rounds.json
 
 ## Step 2: tighten, up to round 3
 
-Read the misses `finder.py` lists, change one thing, preview again and add the round:
+Read the misses `finder.py` lists, change one thing, and preview again: call `build_sn_search_from_prompt` with the same `conversation_id`, name the one change, say "keep everything else", and ask again for 25 sample people. Then judge the new table and add the round. Never edit the URL by hand between rounds: a hand-edited URL has no free preview.
 
-- **Company size and industry:** add `COMPANY_HEADCOUNT` and `INDUSTRY` to the URL yourself (or call `build_sn_search_from_prompt` again with the same `conversation_id` and ask for them). Headcount codes: B 1-10, C 11-50, D 51-200, E 201-500, F 501-1,000, G 1,001-5,000. Software Development is industry 4.
-- **Wrong roles:** add the words that keep coming back (Consultant, Advisor, Fractional...) to the `NOT (...)` part of the title filter. Never exclude a phrase that is part of a good title: "Director of Sales" also removes "Director of Sales Operations".
+- **Company size:** ask for the Company headcount filter by range (for example 51-200 and 201-500) on the same people search. It stays a lead search.
+- **Industry:** do not ask the builder for it, it starts the company-first crawl. Judge the industry from the company names in the preview, and check it again on the export, which carries each company's industry.
+- **Wrong roles:** ask to exclude the words that keep coming back (Consultant, Advisor, Fractional...) from the job title. Never exclude a phrase that is part of a good title: "Director of Sales" also removes "Director of Sales Operations".
+- After each round, read `filters_used`: confirm the builder made your one change and nothing else, and undo any filter you did not ask for.
 
 Stop when `finder.py rounds` says `ready to export`, or after round 3: then show the user the misses and ask.
 
